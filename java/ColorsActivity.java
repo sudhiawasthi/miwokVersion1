@@ -1,5 +1,6 @@
 package com.example.android.miwokk;
 
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -15,6 +16,36 @@ import java.util.ArrayList;
 
 public class ColorsActivity extends AppCompatActivity {
     MediaPlayer mplayer;
+    AudioManager mAudioManager;
+    private AudioManager.OnAudioFocusChangeListener mFocusChangeListener= new AudioManager.OnAudioFocusChangeListener() {
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+            if(focusChange==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT|| focusChange== AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK)
+            {
+                // we are dealing both cases together because our audio file is small and hence we will pause and play from beginning in bOTH CASES
+
+                mplayer.pause();
+                mplayer.seekTo(0); // the audio is set at the 0 msec so that whenever it is played again, it plays from the start
+            }
+            else if(focusChange==AudioManager.AUDIOFOCUS_LOSS)
+            {
+                //agar milna hi nhi ho to  rsource clean krdo
+                releaseMediaPlayer();
+            }
+            else if(focusChange==AudioManager.AUDIOFOCUS_GAIN)
+            {
+                mplayer.start();
+            }
+        }
+    };
+    private MediaPlayer.OnCompletionListener mCompletionListener = new MediaPlayer.OnCompletionListener() {
+        @Override
+        public void onCompletion(MediaPlayer mediaPlayer) {
+            // Now that the sound file has finished playing, release the media player resources.
+            releaseMediaPlayer();
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,26 +68,20 @@ public class ColorsActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 releaseMediaPlayer();
-                mplayer =MediaPlayer.create(ColorsActivity.this,words.get(position).getmAudioid());
-                mplayer.start();
-                mplayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    @Override
-                    public void onCompletion(MediaPlayer mp) {
-                        releaseMediaPlayer();
-                    }
-                });
+                int result = mAudioManager.requestAudioFocus(mFocusChangeListener,
+                        AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+                if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    mplayer = MediaPlayer.create(ColorsActivity.this, words.get(position).getmAudioid());
+                    mplayer.start();
+                    mplayer.setOnCompletionListener(mCompletionListener);
+                }
 
 
             }
+
+
         });
 
-       /* LinearLayout rootView= (LinearLayout)findViewById(R.id.rootView);
-
-        for(int i=0;i<10;i++) {
-            TextView wordView=new TextView(this);
-            wordView.setText(words.get(i));
-            rootView.addView(wordView);
-        }*/
     }
     private void releaseMediaPlayer() {
         // If the media player is not null, then it may be currently playing a sound.
